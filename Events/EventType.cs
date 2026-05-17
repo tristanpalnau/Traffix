@@ -8,6 +8,8 @@ public enum EventType
 {
     /// <summary>Party enters the restaurant and is either seated or added to the waiting queue.</summary>
     PartyArrives,
+    /// <summary>A free host picks up a waiting party and begins escorting them to their table.</summary>
+    HostAssigned,
     /// <summary>Party is assigned a table and occupancy tracking begins.</summary>
     PartySeated,
     /// <summary>Party submits their order; triggers the food preparation delay.</summary>

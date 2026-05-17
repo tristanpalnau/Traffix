@@ -23,15 +23,23 @@ public class SimulationEvent
     /// </summary>
     public Table? Table { get; set; }
 
+    /// <summary>
+    /// The host handling this event, or <c>null</c> for events that do not
+    /// involve a host (e.g. order, food, payment lifecycle events).
+    /// </summary>
+    public Host? Host { get; set; }
+
     public SimulationEvent(
         double time,
         EventType eventType,
         Party party,
-        Table? table = null)
+        Table? table = null,
+        Host? host = null)
     {
         Time = time;
         EventType = eventType;
         Party = party;
         Table = table;
+        Host = host;
     }
 }
