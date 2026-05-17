@@ -4,38 +4,17 @@ using Traffix.Events;
 
 EventQueue eventQueue = new EventQueue();
 
-Simulation simulation = new Simulation(eventQueue);
-
-Table table1 = new Table
+List<Table> tables = new List<Table>
 {
-    Id = 1,
-    Capacity = 4,
-    IsOccupied = false
+    new Table { Id = 1, Capacity = 2, IsOccupied = false },
+    new Table { Id = 2, Capacity = 4, IsOccupied = false },
+    new Table { Id = 3, Capacity = 6, IsOccupied = false }
 };
 
-Party party1 = new Party { Id = 1, Size = 4 };
-Party party2 = new Party { Id = 2, Size = 2 };
-Party party3 = new Party { Id = 3, Size = 3 };
+Simulation simulation = new Simulation(eventQueue, tables);
 
-simulation.AddEvent(new SimulationEvent(
-    0,
-    EventType.PartyArrives,
-    party1,
-    table1
-));
-
-simulation.AddEvent(new SimulationEvent(
-    5,
-    EventType.PartyArrives,
-    party2,
-    table1
-));
-
-simulation.AddEvent(new SimulationEvent(
-    10,
-    EventType.PartyArrives,
-    party3,
-    table1
-));
+simulation.SchedulePartyArrival(1, 2, 0);
+simulation.SchedulePartyArrival(2, 5, 6);
+simulation.SchedulePartyArrival(3, 5, 12);
 
 simulation.Run();

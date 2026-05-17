@@ -6,15 +6,19 @@ namespace Traffix.Events;
 
 public class SimulationEvent
 {
-    public int Time { get; set; }
-    public EventType Type { get; set; }
+    public double Time { get; set; }
+    public EventType EventType { get; set; }
     public Party Party { get; set; }
-    public Table Table { get; set; }
+    public Table? Table { get; set; }
 
-    public SimulationEvent(int time, EventType type, Party party, Table table)
+    public SimulationEvent(
+        double time,
+        EventType eventType,
+        Party party,
+        Table? table = null)
     {
         Time = time;
-        Type = type;
+        EventType = eventType;
         Party = party;
         Table = table;
     }
