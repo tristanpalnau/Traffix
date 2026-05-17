@@ -3,6 +3,15 @@ using Traffix.Entities;
 
 namespace Traffix.Core;
 
+/// <summary>
+/// The simulation engine. Owns the event queue, tables, and waiting queue,
+/// and drives the main event-processing loop.
+/// <para>
+/// Typical usage: create a <see cref="Simulation"/>, seed arrivals with
+/// <see cref="GenerateRandomArrivals"/> or <see cref="SchedulePartyArrival"/>,
+/// then call <see cref="Run"/>.
+/// </para>
+/// </summary>
 public class Simulation
 {
     private readonly EventQueue _eventQueue;
@@ -26,6 +35,10 @@ public class Simulation
         _tables = tables;
     }
 
+    /// <summary>
+    /// Processes all events in the queue until none remain, then prints
+    /// the end-of-run summary.
+    /// </summary>
     public void Run()
     {
         while (_eventQueue.HasEvents())
@@ -69,6 +82,38 @@ public class Simulation
         }
     }
 
+    /// <summary>
+    /// Seeds the event queue with randomly generated party arrivals using a
+    /// Poisson process (exponential inter-arrival times).
+    /// </summary>
+    /// <param name="partyCount">Total number of parties to generate.</param>
+    /// <param name="meanInterArrivalMinutes">Average minutes between consecutive arrivals (1/λ).</param>
+    /// <param name="minPartySize">Minimum party size, inclusive. Defaults to 1.</param>
+    /// <param name="maxPartySize">Maximum party size, inclusive. Defaults to 6.</param>
+    /// <param name="seed">Optional RNG seed for reproducible runs.</param>
+    public void GenerateRandomArrivals(
+        int partyCount,
+        double meanInterArrivalMinutes,
+        int minPartySize = 1,
+        int maxPartySize = 6,
+        int? seed = null)
+    {
+        Random rng = seed.HasValue ? new Random(seed.Value) : new Random();
+        double time = 0;
+
+        for (int i = 1; i <= partyCount; i++)
+        {
+            time += -Math.Log(rng.NextDouble()) * meanInterArrivalMinutes;
+            int size = rng.Next(minPartySize, maxPartySize + 1);
+            SchedulePartyArrival(i, size, time);
+        }
+    }
+
+    /// <summary>
+    /// Schedules a single party arrival at an explicit simulation time.
+    /// Prefer <see cref="GenerateRandomArrivals"/> for realistic traffic;
+    /// use this for controlled test scenarios.
+    /// </summary>
     public void SchedulePartyArrival(
         int partyId,
         int partySize,
@@ -88,6 +133,10 @@ public class Simulation
         _eventQueue.AddEvent(arrivalEvent);
     }
 
+    /// <summary>
+    /// Returns the smallest unoccupied table that fits the party (best-fit),
+    /// or <c>null</c> if no table is available.
+    /// </summary>
     private Table? FindAvailableTableFor(Party party)
     {
         return _tables
@@ -96,6 +145,10 @@ public class Simulation
             .FirstOrDefault();
     }
 
+    /// <summary>
+    /// Extracts the required table from an event, logging an error and returning
+    /// <c>false</c> if the event has no associated table.
+    /// </summary>
     private bool TryGetRequiredTable(SimulationEvent simEvent, out Table table)
     {
         if (simEvent.Table == null)
@@ -234,6 +287,10 @@ public class Simulation
         }
     }
 
+    /// <summary>
+    /// Scans the waiting queue for the first party that fits <paramref name="table"/>.
+    /// Unmatched parties are re-queued in their original order.
+    /// </summary>
     private Party? FindWaitingPartyFor(Table table)
     {
         Queue<Party> tempQueue = new Queue<Party>();

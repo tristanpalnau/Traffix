@@ -13,8 +13,6 @@ List<Table> tables = new List<Table>
 
 Simulation simulation = new Simulation(eventQueue, tables);
 
-simulation.SchedulePartyArrival(1, 2, 0);
-simulation.SchedulePartyArrival(2, 5, 6);
-simulation.SchedulePartyArrival(3, 5, 12);
+simulation.GenerateRandomArrivals(partyCount: 20, meanInterArrivalMinutes: 5);
 
 simulation.Run();
