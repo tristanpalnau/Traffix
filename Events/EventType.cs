@@ -12,6 +12,8 @@ public enum EventType
     HostAssigned,
     /// <summary>Party is assigned a table and occupancy tracking begins.</summary>
     PartySeated,
+    /// <summary>Server greets the table to take the order.</summary>
+    ServerGreet,
     /// <summary>Party submits their order; triggers the food preparation delay.</summary>
     OrderPlaced,
     /// <summary>Food is delivered; triggers the dining delay before the party leaves.</summary>

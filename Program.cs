@@ -16,7 +16,12 @@ List<Host> hosts = new List<Host>
     new Host { Id = 1 }
 };
 
-Simulation simulation = new Simulation(eventQueue, tables, hosts);
+List<Server> servers = new List<Server>
+{
+    new Server { Id = 1 }
+};
+
+Simulation simulation = new Simulation(eventQueue, tables, hosts, servers);
 
 simulation.GenerateRandomArrivals(partyCount: 20, meanInterArrivalMinutes: 5);
 

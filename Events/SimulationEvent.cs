@@ -29,17 +29,25 @@ public class SimulationEvent
     /// </summary>
     public Host? Host { get; set; }
 
+    /// <summary>
+    /// The server handling this event, or <c>null</c> for events that do not
+    /// involve a server (e.g. party arrives, party seated).
+    /// </summary>
+    public Server? Server { get; set; }
+
     public SimulationEvent(
         double time,
         EventType eventType,
         Party party,
         Table? table = null,
-        Host? host = null)
+        Host? host = null,
+        Server? server = null)
     {
         Time = time;
         EventType = eventType;
         Party = party;
         Table = table;
         Host = host;
+        Server = server;
     }
 }
