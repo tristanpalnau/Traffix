@@ -32,21 +32,26 @@ The project is intentionally being built incrementally with emphasis on:
 
 # Current Architecture
 
-Traffix uses an event-driven simulation architecture.
+Traffix uses a discrete event simulation architecture.
 
 Core idea:
 - events are scheduled chronologically
 - the simulation processes events in time order
-- events dynamically schedule future events
+- each event handler can schedule future events
+- resource constraints determine whether parties wait, get seated, or receive server attention
 
 Simulation time is tracked using:
-_currentTime
+`_currentTime`
 
 Current event queue:
-List<SimulationEvent>
+`List<SimulationEvent>` inside `EventQueue`
 
 Current waiting queue:
-Queue<Party>
+`Queue<Party>`
+
+Current server work queues:
+- `_needsServer`: seated parties waiting to be greeted
+- `_readyToOrder`: parties waiting for order taking
 
 ---
 
@@ -59,20 +64,31 @@ Owns:
 - event queue
 - waiting queue
 - table collection
+- host collection
+- server collection
+- reserved table tracking
 - event processing
 - simulation state
 - metrics tracking
 
-Simulation currently contains private helper methods for event handling.
+`Simulation` is implemented as a partial class split by responsibility:
+- `Core/Simulation.cs`: core state, constructor, run loop, and event dispatch
+- `Core/Simulation.Arrivals.cs`: random and explicit party arrival scheduling
+- `Core/Simulation.EventHandlers.cs`: event-specific behavior
+- `Core/Simulation.Resources.cs`: table, host, server, waiting queue, and server work assignment logic
+- `Core/Simulation.Reporting.cs`: end-of-run summary output
 
 Current responsibilities include:
+- generating random arrivals
 - assigning compatible tables
+- reserving tables while hosts escort parties
 - processing event flow
 - seating logic
 - waiting queue management
+- server greeting and order-taking queues
 - metrics calculation
 
-Program.cs currently configures simulation scenarios and schedules initial arrivals.
+`Program.cs` currently configures simulation scenarios, creates tables/hosts/servers, generates random arrivals, and runs the simulation.
 
 ---
 
@@ -81,13 +97,14 @@ Program.cs currently configures simulation scenarios and schedules initial arriv
 Maintains chronological ordering of simulation events.
 
 Current implementation:
-List<SimulationEvent>
+`List<SimulationEvent>`
 
 Chosen intentionally for readability and simplicity over optimization.
 
 Responsibilities:
 - storing events
 - maintaining chronological order
+- returning the next event to process
 
 ---
 
@@ -97,18 +114,25 @@ Represents a scheduled event in simulation time.
 
 Current events:
 - PartyArrives
+- HostAssigned
 - PartySeated
+- ServerGreet
+- PartyReadyToOrder
 - OrderPlaced
 - FoodReady
 - PartyLeaves
 - TableCleaned
 
-Important detail:
-- arrival events do not require a table
-- later events require a table assignment
+Important details:
+- arrival events do not require a table, host, or server
+- host events require a host
+- table lifecycle events require a table
+- server events require a server
 
-Table references are nullable:
-Table?
+Nullable references:
+- `Table?`
+- `Host?`
+- `Server?`
 
 ---
 
@@ -148,20 +172,60 @@ rather than stored directly.
 
 ---
 
+## Host
+
+Represents a host who escorts parties to tables.
+
+Currently tracks:
+- Id
+- IsBusy
+- TotalBusyMinutes
+
+Responsibilities:
+- busy/available state management
+- busy duration tracking
+
+---
+
+## Server
+
+Represents a server who greets tables and takes orders.
+
+Currently tracks:
+- Id
+- IsBusy
+- TotalBusyMinutes
+
+Responsibilities:
+- busy/available state management
+- busy duration tracking for greeting and order-taking work
+
+---
+
 # Current Simulation Flow
 
+```text
 PartyArrives
-→ PartySeated
-→ OrderPlaced
-→ FoodReady
-→ PartyLeaves
-→ TableCleaned
+-> HostAssigned
+-> PartySeated
+-> ServerGreet
+-> PartyReadyToOrder
+-> OrderPlaced
+-> FoodReady
+-> PartyLeaves
+-> TableCleaned
+```
 
 Current behavior:
 - parties arrive chronologically
 - simulation chooses the smallest compatible available table
-- if no compatible table exists, party enters waiting queue
-- waiting parties are rechecked when tables become available
+- tables are reserved while a host is escorting a party
+- if no compatible table or host exists, the party enters the waiting queue
+- waiting parties are rechecked when parties are seated and when tables are cleaned
+- after seating, parties enter a server greeting queue
+- after greeting, parties wait before becoming ready to order
+- order-taking work is prioritized before greeting newly seated parties
+- food readiness, dining, leaving, and table cleaning are scheduled with fixed delays
 
 ---
 
@@ -169,13 +233,18 @@ Current behavior:
 
 Implemented:
 - table utilization %
+- host utilization %
+- server utilization %
 - average wait time
 
 Wait time calculation:
-_currentTime - party.ArrivalTime
+`_currentTime - party.ArrivalTime`
 
-Utilization calculation:
-table.TotalOccupiedMinutes / _currentTime
+Table utilization calculation:
+`table.TotalOccupiedMinutes / _currentTime`
+
+Host/server utilization calculation:
+`resource.TotalBusyMinutes / _currentTime`
 
 Current metrics are intentionally lightweight and directly calculated without a large metrics framework.
 
@@ -188,19 +257,27 @@ Implemented:
 - chronological event queue
 - simulation clock
 - dynamic event scheduling
+- random traffic generation
 - multiple table support
 - capacity-aware seating
+- host assignment and host busy-time tracking
+- table reservation during host escorting
 - waiting queue management
-- smarter compatible seating logic
+- compatible seating logic
+- server greeting queue
+- server order-taking queue
 - table utilization tracking
+- host utilization tracking
+- server utilization tracking
 - average wait time tracking
+- partial `Simulation` file split by responsibility
 
 Current limitations:
-- no server system
-- no kitchen constraints
-- no staffing simulation
+- no kitchen capacity constraints
+- no menu/order complexity
 - no advanced metrics framework
-- no random traffic generation yet
+- no scenario configuration files
+- no automated tests yet
 
 ---
 
@@ -215,9 +292,9 @@ Current priorities:
 - keeping scope finishable
 
 Important decisions:
-- helper methods remain inside Simulation.cs for now
+- keep `Simulation` as one conceptual type, split with partial files for readability
 - avoid premature abstractions/frameworks
-- Program.cs mainly configures and starts simulations
+- `Program.cs` mainly configures and starts simulations
 - optimize only when necessary
 - prefer understandable code over highly abstract designs
 - use compiler errors and runtime output as part of iterative debugging workflow
@@ -247,12 +324,11 @@ When suggesting improvements:
 # Current Likely Next Steps
 
 Potential next features:
-- random traffic generation
-- simulation summaries
-- server simulation
-- kitchen constraints
-- staffing pressure metrics
+- kitchen capacity modeling
 - throughput metrics
+- staffing pressure metrics
 - configurable scenarios
+- automated tests for event flow and queue behavior
+- richer simulation summaries
 
 All future systems should be added incrementally while preserving readability and maintainability.
