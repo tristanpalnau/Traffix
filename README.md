@@ -71,6 +71,26 @@ dotnet run
 
 The sample setup in `Program.cs` creates tables, hosts, servers, generates random arrivals, and runs the simulation to completion.
 
+## Project Structure
+
+```text
+Core/
+  EventQueue.cs
+  Simulation.cs                  core simulation state and run loop
+  Simulation.Arrivals.cs         party arrival scheduling
+  Simulation.EventHandlers.cs    event-specific simulation behavior
+  Simulation.Resources.cs        table, host, server, and queue assignment logic
+  Simulation.Reporting.cs        end-of-run summary output
+Entities/
+  Host.cs
+  Party.cs
+  Server.cs
+  Table.cs
+Events/
+  EventType.cs
+  SimulationEvent.cs
+```
+
 ## Project Goals
 
 Future improvements may include:
