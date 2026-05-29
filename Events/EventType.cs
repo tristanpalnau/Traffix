@@ -14,6 +14,8 @@ public enum EventType
     PartySeated,
     /// <summary>Server greets the table to take the order.</summary>
     ServerGreet,
+    /// <summary>Party is ready for a server to take the order.</summary>
+    PartyReadyToOrder,
     /// <summary>Party submits their order; triggers the food preparation delay.</summary>
     OrderPlaced,
     /// <summary>Food is delivered; triggers the dining delay before the party leaves.</summary>

@@ -8,8 +8,14 @@ The goal of the project is to model restaurant traffic flow, table turnover, gue
 
 - Event queue that processes events in chronological order
 - Simulation clock based on event timestamps
-- Party arrival, seating, ordering, food ready, leaving, and table cleaning events
-- Waiting queue for parties when a table is occupied
+- Random party arrival generation using exponential inter-arrival times
+- Party arrival, host assignment, seating, server greeting, ordering, food ready, leaving, and table cleaning events
+- Waiting queue for parties when no suitable table or host is available
+- Table reservation while a host is escorting a party, preventing double assignment
+- Server work queues for greeting parties and taking orders
+- Separate server busy time for greeting and order-taking work
+- Table, host, and server utilization reporting
+- Average guest wait time reporting
 - Modular event handlers for cleaner simulation logic
 - Console-based output for early testing
 
@@ -25,29 +31,53 @@ The goal of the project is to model restaurant traffic flow, table turnover, gue
 
 ```text
 Party Arrives
-↓
+|
+v
+Host Assigned
+|
+v
 Party Seated
-↓
+|
+v
+Server Greet
+|
+v
+Party Ready to Order
+|
+v
 Order Placed
-↓
+|
+v
 Food Ready
-↓
+|
+v
 Party Leaves
-↓
+|
+v
 Table Cleaned
 ```
 
-If the table is occupied, arriving parties are added to a waiting queue and seated later when the table becomes available.
+If no suitable table or host is available, the arriving party is added to a waiting queue. When a table is cleaned or a host becomes available, the simulation tries to seat the next waiting party that can fit at an open table.
+
+After a party is seated, they enter the server workflow. A server is busy while greeting a table, then becomes available again while the party decides what to order. When the party is ready to order, the simulation assigns an available server to take the order.
+
+## Running Locally
+
+From the project root:
+
+```bash
+dotnet run
+```
+
+The sample setup in `Program.cs` creates tables, hosts, servers, generates random arrivals, and runs the simulation to completion.
 
 ## Project Goals
 
 Future improvements may include:
 
-- Multiple tables
 - Multiple servers
 - Kitchen capacity modeling
-- Table utilization metrics
-- Average wait time calculations
+- Separate table occupied time and table unavailable time metrics
 - Randomized arrival patterns
 - Staffing scenario comparison
 - Bottleneck analysis

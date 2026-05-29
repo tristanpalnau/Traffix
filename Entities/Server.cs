@@ -13,7 +13,7 @@ public class Server
     public bool IsBusy { get; private set; }
 
     /// <summary>
-    /// Running total of minutes the server has been busy across all seatings.
+    /// Running total of minutes the server has been busy across all assigned tasks.
     /// Used to compute utilization percentage at simulation end.
     /// </summary>
     public double TotalBusyMinutes { get; private set; }

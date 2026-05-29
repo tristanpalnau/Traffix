@@ -18,8 +18,10 @@ public class Simulation
     private readonly List<Table> _tables;
     private readonly List<Host> _hosts;
     private readonly List<Server> _servers;
+    private readonly HashSet<Table> _reservedTables = new HashSet<Table>();
     private Queue<Party> _waitList = new Queue<Party>();
     private Queue<(Party party, Table table)> _needsServer = new Queue<(Party, Table)>();
+    private Queue<(Party party, Table table)> _readyToOrder = new Queue<(Party, Table)>();
 
 
     private double _currentTime;
@@ -28,7 +30,8 @@ public class Simulation
 
     private int _seatDelay = 1;
     private int _greetDelay = 1;
-    private int _orderDelay = 6;
+    private int _readyToOrderDelay = 5;
+    private int _takeOrderDelay = 1;
     private int _foodDelay = 10;
     private int _diningDelay = 15;
     private int _bussedDelay = 5;
@@ -76,6 +79,10 @@ public class Simulation
 
             case EventType.ServerGreet:
                 HandleServerGreet(simEvent);
+                break;
+
+            case EventType.PartyReadyToOrder:
+                HandlePartyReadyToOrder(simEvent);
                 break;
 
             case EventType.OrderPlaced:
@@ -165,7 +172,7 @@ public class Simulation
     private Table? FindAvailableTableFor(Party party)
     {
         return _tables
-            .Where(table => !table.IsOccupied && table.Capacity >= party.Size)
+            .Where(table => !table.IsOccupied && !_reservedTables.Contains(table) && table.Capacity >= party.Size)
             .OrderBy(table => table.Capacity)
             .FirstOrDefault();
     }
@@ -178,7 +185,7 @@ public class Simulation
     {
         if (simEvent.Table == null)
         {
-            Console.WriteLine($"ERROR: {simEvent.EventType} event is missing a table at {_currentTime}.");
+            Console.WriteLine($"ERROR: {simEvent.EventType} event is missing a table at {_currentTime:F2}.");
             table = null!;
             return false;
         }
@@ -195,7 +202,7 @@ public class Simulation
     {
         if (simEvent.Host == null)
         {
-            Console.WriteLine($"ERROR: {simEvent.EventType} event is missing a host at {_currentTime}.");
+            Console.WriteLine($"ERROR: {simEvent.EventType} event is missing a host at {_currentTime:F2}.");
             host = null!;
             return false;
         }
@@ -208,7 +215,7 @@ public class Simulation
     {
         if (simEvent.Server == null)
         {
-            Console.WriteLine($"ERROR: {simEvent.EventType} event is missing a server at {_currentTime}.");
+            Console.WriteLine($"ERROR: {simEvent.EventType} event is missing a server at {_currentTime:F2}.");
             server = null!;
             return false;
         }
@@ -221,13 +228,14 @@ public class Simulation
     {
         Party party = simEvent.Party;
 
-        Console.WriteLine($"Party {party.Id} arrived at {_currentTime}.");
+        Console.WriteLine($"Party {party.Id} arrived at {_currentTime:F2}.");
 
         Table? availableTable = FindAvailableTableFor(party);
         Host? availableHost = FindAvailableHost();
 
         if (availableTable != null && availableHost != null)
         {
+            _reservedTables.Add(availableTable);
             availableHost.Assign(_currentTime);
             _eventQueue.AddEvent(new SimulationEvent(
                 _currentTime,
@@ -251,7 +259,7 @@ public class Simulation
         if (!TryGetRequiredTable(simEvent, out Table table)) return;
         if (!TryGetRequiredHost(simEvent, out Host host)) return;
 
-        Console.WriteLine($"Host {host.Id} escorting Party {party.Id} to Table {table.Id} at {_currentTime}.");
+        Console.WriteLine($"Host {host.Id} escorting Party {party.Id} to Table {table.Id} at {_currentTime:F2}.");
 
         _eventQueue.AddEvent(new SimulationEvent(
             _currentTime + _seatDelay,
@@ -270,13 +278,14 @@ public class Simulation
         if (!TryGetRequiredHost(simEvent, out Host host)) return;
 
         table.Occupy(_currentTime);
+        _reservedTables.Remove(table);
         host.Free(_currentTime);
 
         double waitTime = _currentTime - party.ArrivalTime;
         _totalWaitTime += waitTime;
         _partiesSeated++;
 
-        Console.WriteLine($"Party {party.Id} seated at Table {table.Id} at {_currentTime}.");
+        Console.WriteLine($"Party {party.Id} seated at Table {table.Id} at {_currentTime:F2}.");
 
         TrySeatNextWaitingParty();
         FlagServer(party, table);
@@ -288,24 +297,34 @@ public class Simulation
 
         if (!TryGetRequiredTable(simEvent, out Table table))
             return;
-        Server? availableServer = FindAvailableServer();
+        if (!TryGetRequiredServer(simEvent, out Server server))
+            return;
 
-        if (availableServer != null)
-        {
-            availableServer.Assign(_currentTime);
-            _eventQueue.AddEvent(new SimulationEvent(
-                _currentTime + _orderDelay,
-                EventType.OrderPlaced,
-                party,
-                table,
-                server: availableServer
-            ));
-        }
-        else
-        {
-            _needsServer.Enqueue((party, table));
-            Console.WriteLine($"Party {party.Id} is waiting for a server at time {_currentTime}.");
-        }
+        server.Free(_currentTime);
+
+        Console.WriteLine($"Server {server.Id} greeted Party {party.Id} at Table {table.Id} at {_currentTime:F2}.");
+
+        _eventQueue.AddEvent(new SimulationEvent(
+            _currentTime + _readyToOrderDelay,
+            EventType.PartyReadyToOrder,
+            party,
+            table
+        ));
+
+        TryAssignServerWork();
+    }
+
+    private void HandlePartyReadyToOrder(SimulationEvent simEvent)
+    {
+        Party party = simEvent.Party;
+
+        if (!TryGetRequiredTable(simEvent, out Table table))
+            return;
+
+        _readyToOrder.Enqueue((party, table));
+        Console.WriteLine($"Party {party.Id} is ready to order at {_currentTime:F2}.");
+
+        TryAssignServerWork();
     }
 
     private void HandleOrderPlaced(SimulationEvent simEvent)
@@ -317,9 +336,9 @@ public class Simulation
 
         server.Free(_currentTime);
 
-        Console.WriteLine($"Party {party.Id} order placed at {_currentTime}.");
+        Console.WriteLine($"Party {party.Id} order placed at {_currentTime:F2}.");
 
-        TryServeNextWaitingParty();
+        TryAssignServerWork();
 
         _eventQueue.AddEvent(new SimulationEvent(
             _currentTime + _foodDelay,
@@ -336,7 +355,7 @@ public class Simulation
         if (!TryGetRequiredTable(simEvent, out Table table))
             return;
 
-        Console.WriteLine($"Party {party.Id}'s food ready at {_currentTime}.");
+        Console.WriteLine($"Party {party.Id}'s food ready at {_currentTime:F2}.");
 
         _eventQueue.AddEvent(new SimulationEvent(
             _currentTime + _diningDelay,
@@ -353,7 +372,7 @@ public class Simulation
         if (!TryGetRequiredTable(simEvent, out Table table))
             return;
 
-        Console.WriteLine($"Party {party.Id} left at {_currentTime}.");
+        Console.WriteLine($"Party {party.Id} left at {_currentTime:F2}.");
 
         _eventQueue.AddEvent(new SimulationEvent(
             _currentTime + _bussedDelay,
@@ -370,7 +389,7 @@ public class Simulation
 
         table.Free(_currentTime);
 
-        Console.WriteLine($"Table {table.Id} cleaned at {_currentTime}.");
+        Console.WriteLine($"Table {table.Id} cleaned at {_currentTime:F2}.");
 
         TrySeatNextWaitingParty();
 
@@ -414,8 +433,9 @@ public class Simulation
 
         _waitList = tempQueue;
 
-        if (selectedParty != null)
+        if (selectedParty != null && selectedTable != null)
         {
+            _reservedTables.Add(selectedTable);
             host.Assign(_currentTime);
             _eventQueue.AddEvent(new SimulationEvent(
                 _currentTime,
@@ -430,25 +450,54 @@ public class Simulation
     private void FlagServer(Party party, Table table)
     {
         _needsServer.Enqueue((party, table));
-        TryServeNextWaitingParty();
+        TryAssignServerWork();
     }
 
-    private void TryServeNextWaitingParty()
+    private void TryAssignServerWork()
     {
-        if (_needsServer.Count == 0) return;
+        while (TryTakeNextWaitingOrder() || TryServeNextWaitingParty())
+        {
+        }
+    }
+
+    private bool TryServeNextWaitingParty()
+    {
+        if (_needsServer.Count == 0) return false;
 
         Server? server = FindAvailableServer();
-        if (server == null) return;
+        if (server == null) return false;
 
         var (party, table) = _needsServer.Dequeue();
         server.Assign(_currentTime);
         _eventQueue.AddEvent(new SimulationEvent(
-            _currentTime + _orderDelay,
+            _currentTime + _greetDelay,
+            EventType.ServerGreet,
+            party,
+            table,
+            server: server
+        ));
+
+        return true;
+    }
+
+    private bool TryTakeNextWaitingOrder()
+    {
+        if (_readyToOrder.Count == 0) return false;
+
+        Server? server = FindAvailableServer();
+        if (server == null) return false;
+
+        var (party, table) = _readyToOrder.Dequeue();
+        server.Assign(_currentTime);
+        _eventQueue.AddEvent(new SimulationEvent(
+            _currentTime + _takeOrderDelay,
             EventType.OrderPlaced,
             party,
             table,
             server: server
         ));
+
+        return true;
     }
 
     private void PrintSimulationSummary()
@@ -467,6 +516,14 @@ public class Simulation
         {
             double utilization = host.TotalBusyMinutes / _currentTime * 100;
             Console.WriteLine($"Host {host.Id}: {utilization:F2}% utilized");
+        }
+
+        Console.WriteLine("\n--- Server Utilization ---");
+
+        foreach (var server in _servers)
+        {
+            double utilization = server.TotalBusyMinutes / _currentTime * 100;
+            Console.WriteLine($"Server {server.Id}: {utilization:F2}% utilized");
         }
 
         double averageWaitTime = _partiesSeated > 0

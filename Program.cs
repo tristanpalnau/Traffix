@@ -23,6 +23,6 @@ List<Server> servers = new List<Server>
 
 Simulation simulation = new Simulation(eventQueue, tables, hosts, servers);
 
-simulation.GenerateRandomArrivals(partyCount: 20, meanInterArrivalMinutes: 5);
+simulation.GenerateRandomArrivals(partyCount: 5, meanInterArrivalMinutes: 5);
 
 simulation.Run();
