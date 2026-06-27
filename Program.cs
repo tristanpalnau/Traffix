@@ -1,28 +1,40 @@
-﻿using Traffix.Core;
+using Traffix.Config;
+using Traffix.Core;
 using Traffix.Entities;
-using Traffix.Events;
+
+var config = new SimulationConfig(
+    Label: "Default Scenario",
+    ServerCount: 1,
+    HostCount: 1,
+    TableLayout: [(2, 1), (4, 1), (6, 1)],
+    PartyCount: 5,
+    MeanInterArrivalMinutes: 5
+);
 
 EventQueue eventQueue = new EventQueue();
 
-List<Table> tables = new List<Table>
+var tables = new List<Table>();
+int tableId = 1;
+foreach (var (capacity, count) in config.TableLayout)
 {
-    new Table { Id = 1, Capacity = 2, IsOccupied = false },
-    new Table { Id = 2, Capacity = 4, IsOccupied = false },
-    new Table { Id = 3, Capacity = 6, IsOccupied = false }
-};
+    for (int i = 0; i < count; i++)
+        tables.Add(new Table { Id = tableId++, Capacity = capacity, IsOccupied = false });
+}
 
-List<Host> hosts = new List<Host>
-{
-    new Host { Id = 1 }
-};
+var hosts = new List<Host>();
+for (int i = 1; i <= config.HostCount; i++)
+    hosts.Add(new Host { Id = i });
 
-List<Server> servers = new List<Server>
-{
-    new Server { Id = 1 }
-};
+var servers = new List<Server>();
+for (int i = 1; i <= config.ServerCount; i++)
+    servers.Add(new Server { Id = i });
 
 Simulation simulation = new Simulation(eventQueue, tables, hosts, servers);
 
-simulation.GenerateRandomArrivals(partyCount: 5, meanInterArrivalMinutes: 5);
+simulation.GenerateRandomArrivals(
+    partyCount: config.PartyCount,
+    meanInterArrivalMinutes: config.MeanInterArrivalMinutes,
+    seed: config.Seed
+);
 
-simulation.Run();
+simulation.Run(config.Label);

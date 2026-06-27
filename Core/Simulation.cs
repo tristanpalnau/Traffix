@@ -1,5 +1,6 @@
 using Traffix.Entities;
 using Traffix.Events;
+using Traffix.Metrics;
 
 namespace Traffix.Core;
 
@@ -26,6 +27,7 @@ public partial class Simulation
     private double _currentTime;
     private double _totalWaitTime = 0;
     private int _partiesSeated = 0;
+    private int _partiesWaited = 0;
 
     private int _seatDelay = 1;
     private int _greetDelay = 1;
@@ -47,7 +49,7 @@ public partial class Simulation
     /// Processes all events in the queue until none remain, then prints
     /// the end-of-run summary.
     /// </summary>
-    public void Run()
+    public SimulationResult Run(string label)
     {
         while (_eventQueue.HasEvents())
         {
@@ -58,7 +60,8 @@ public partial class Simulation
             ProcessEvent(currentEvent);
         }
 
-        PrintSimulationSummary();
+        PrintSimulationSummary(label);
+        return BuildResult(label);
     }
 
     private void ProcessEvent(SimulationEvent simEvent)

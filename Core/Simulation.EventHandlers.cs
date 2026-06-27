@@ -29,6 +29,7 @@ public partial class Simulation
         else
         {
             _waitList.Enqueue(party);
+            _partiesWaited++;
             Console.WriteLine($"Party {party.Id} is waiting. Waiting count: {_waitList.Count}");
         }
     }
